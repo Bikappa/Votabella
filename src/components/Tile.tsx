@@ -9,8 +9,10 @@ export type Props = {
     autoIncreaseInterval: number,
     autoIncreaseDelta: number,
     minGrade: number,
+    label: string,
     locked: boolean,
     onLockToggle: () => void,
+    onLabelChange: (label: string) => void,
     onChange?: (arg0: number) => void
 }
 function clampGrade(grade: number, minGrade = 0) {
@@ -35,7 +37,7 @@ function tileBg(grade: number) {
     return `linear-gradient(135deg, rgb(${mix(a1, a2, t)}), rgb(${mix(b1, b2, t)}))`
 }
 
-export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncreaseDelta, minGrade, locked, onLockToggle}: Props) {
+export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncreaseDelta, minGrade, label, locked, onLockToggle, onLabelChange}: Props) {
     const bg = tileBg(grade);
     const iid = useRef<number>(0)
     const tid = useRef<number>(0)
@@ -113,23 +115,27 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
         <button className={`absolute top-1 right-1 z-10 size-6 cursor-pointer hover:opacity-100 ${locked ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'}`} onClick={onLockToggle}>
             {locked ? <LockClosedIcon /> : <LockOpenIcon />}
         </button>
-        <div className="flex flex-col items-center gap-1">
-        <span className="text-xl font-medium text-gray-300ntext-shadow-xs">{title}</span>
-        <div className="flex gap-2">
+        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col w-full items-center justify-center gap-1">
+            <input className="w-20 min-w-0 rounded bg-transparent px-1 text-sm text-gray-200 outline-none focus:bg-black/25 focus:outline focus:outline-1 focus:outline-white/60 text-center" value={label} onChange={(e) => onLabelChange(e.target.value)} />
+            <span className="text-xl font-medium text-gray-300 text-shadow-xs">{title}</span>
+        </div>
+        <div className="flex gap-1 items-center">
               <div className="group-hover:opacity-100 opacity-0">
                 <DeltaButton disabled={grade <= minGrade} onClick={() => wrappedOnChange?.(grade - 0.25)}><MinusIcon /></DeltaButton>
             </div>
+                <select 
+        className="text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg "
+        value={grade}
+        onChange={(e) => wrappedOnChange?.(parseFloat(e.target.value))}>
+            {gradeOptions.map((v) => <option key={v} value={v}>{v}</option>)}
+            </select>
             <div className="group-hover:opacity-100 opacity-0">
                 <DeltaButton disabled={grade >= 10} onClick={() => wrappedOnChange?.(grade + 0.25)}><PlusIcon /></DeltaButton>
             </div>
           
         </div>
-        <select 
-        className="text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg"
-        value={grade}
-        onChange={(e) => wrappedOnChange?.(parseFloat(e.target.value))}>
-            {gradeOptions.map((v) => <option key={v} value={v}>{v}</option>)}
-            </select>
+        
         
         </div>
         </div>

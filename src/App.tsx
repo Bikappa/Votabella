@@ -56,6 +56,9 @@ function App() {
   const [lockedTiles, setLockedTiles] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(keys.map((key) => [key, !!savedState?.lockedTiles?.[key]])),
   )
+  const [labels, setLabels] = useState<Record<string, string>>(() =>
+    Object.fromEntries(keys.map((key) => [key, String(savedState?.labels?.[key] ?? '')])),
+  )
   const [resetVersion, setResetVersion] = useState(0)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settings, setSettings] = useState({
@@ -67,14 +70,15 @@ function App() {
   const resetAll = () => {
     setGrades(Object.fromEntries(keys.map((key) => [key, config.minGrade])))
     setLockedTiles({})
+    setLabels({})
     setResetVersion((prev) => prev + 1)
   }
   const changeAll = (delta: number) => setGrades((prev) =>
     Object.fromEntries(keys.map((key) => [key, Math.min(10, Math.max(config.minGrade, prev[key] + delta))])),
   )
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify({grades, lockedTiles}))
-  }, [grades, lockedTiles, storageKey])
+    localStorage.setItem(storageKey, JSON.stringify({grades, labels, lockedTiles}))
+  }, [grades, labels, lockedTiles, storageKey])
   const applySettings = () => {
     const params = new URLSearchParams(window.location.search)
     params.set('interval', String(Math.max(1, Number(settings.interval) || config.autoIncreaseInterval / 1000) * 1000))
@@ -138,8 +142,10 @@ function App() {
               key={`tile-${key}-${resetVersion}`}
               grade={score}
               title={key}
+              label={labels[key] ?? ''}
               locked={!!lockedTiles[key]}
               onLockToggle={() => setLockedTiles((prev) => ({...prev, [key]: !prev[key]}))}
+              onLabelChange={(label) => setLabels((prev) => ({...prev, [key]: label}))}
               autoIncreaseInterval={config.autoIncreaseInterval}
               autoIncreaseDelta={config.autoIncreaseDelta}
               minGrade={config.minGrade}
