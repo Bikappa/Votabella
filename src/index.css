@@ -1,9 +1,14 @@
 @import "tailwindcss";
 
- button:disabled {
+button:disabled {
     opacity: 50%;
   }
 
+@keyframes grade-bounce {
+    50% {
+        transform: scale(1.1);
+    }
+}
 
 html, body, #root {
     min-height: 100%;

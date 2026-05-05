@@ -134,7 +134,8 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
                 <DeltaButton disabled={grade <= minGrade} title="Decrease grade" onClick={() => wrappedOnChange?.(grade - 0.25)}><MinusIcon /></DeltaButton>
             </div>
                 <select 
-        className="text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg "
+        key={grade}
+        className="animate-[grade-bounce_300ms_ease-out] text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg"
         value={grade}
         onChange={(e) => wrappedOnChange?.(parseFloat(e.target.value))}>
             {gradeOptions.map((v) => <option key={v} value={v}>{v}</option>)}
