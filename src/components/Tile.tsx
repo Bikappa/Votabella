@@ -44,7 +44,9 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
     const left = useRef(autoIncreaseInterval)
     const [timeLeft, setTimeLeft] = useState(autoIncreaseInterval)
     const [timerVersion, setTimerVersion] = useState(0)
+    const [active, setActive] = useState(false)
     const nextAutoGrade = clampGrade(grade + autoIncreaseDelta, minGrade)
+    const controlClass = active ? '' : 'hidden group-hover:block'
 
     const resetTimer = useCallback(() => {
         left.current = autoIncreaseInterval
@@ -109,10 +111,17 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
         text-center 
         text-2xl
         group"
+        onPointerDown={() => setActive(true)}
+        onBlur={(e) => {
+            if(!e.currentTarget.contains(e.relatedTarget)){
+                setActive(false)
+            }
+        }}
+        tabIndex={-1}
     >
         {grade !== 10 && <IntervalIndicator period={autoIncreaseInterval} left={timeLeft} />}
         <div className="relative flex h-full min-h-32 items-center justify-center rounded-xl p-6" style={{ background: bg }}>
-        <button className={`absolute top-1 right-1 z-10 size-6 cursor-pointer hover:opacity-100 ${locked ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'}`} onClick={onLockToggle}>
+        <button className={`absolute top-1 right-1 z-10 size-6 cursor-pointer opacity-70 hover:opacity-100 ${locked ? '' : controlClass}`} onClick={onLockToggle} title={locked ? 'Unlock tile' : 'Lock tile'}>
             {locked ? <LockClosedIcon /> : <LockOpenIcon />}
         </button>
         <div className="flex flex-col items-center gap-4">
@@ -121,8 +130,8 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
             <span className="text-xl font-medium text-gray-300 text-shadow-xs">{title}</span>
         </div>
         <div className="flex gap-1 items-center">
-              <div className="group-hover:opacity-100 opacity-0">
-                <DeltaButton disabled={grade <= minGrade} onClick={() => wrappedOnChange?.(grade - 0.25)}><MinusIcon /></DeltaButton>
+              <div className={controlClass}>
+                <DeltaButton disabled={grade <= minGrade} title="Decrease grade" onClick={() => wrappedOnChange?.(grade - 0.25)}><MinusIcon /></DeltaButton>
             </div>
                 <select 
         className="text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg "
@@ -130,8 +139,8 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
         onChange={(e) => wrappedOnChange?.(parseFloat(e.target.value))}>
             {gradeOptions.map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
-            <div className="group-hover:opacity-100 opacity-0">
-                <DeltaButton disabled={grade >= 10} onClick={() => wrappedOnChange?.(grade + 0.25)}><PlusIcon /></DeltaButton>
+            <div className={controlClass}>
+                <DeltaButton disabled={grade >= 10} title="Increase grade" onClick={() => wrappedOnChange?.(grade + 0.25)}><PlusIcon /></DeltaButton>
             </div>
           
         </div>

@@ -90,38 +90,46 @@ function App() {
 
   return (
     <div className='flex min-h-screen flex-col items-center gap-4 bg-[radial-gradient(circle_at_20%_15%,#334155_0,#111827_34%,#020617_72%),linear-gradient(135deg,#0f172a,#18181b)] p-4'>
-      <div className="flex shrink-0 items-center gap-2 rounded p-2">
+      <header className="flex w-full shrink-0 items-center justify-between gap-4">
+      <h1 className="text-3xl font-semibold tracking-wide text-white">Votabella</h1>
+      <div className="flex items-center gap-2 rounded p-2">
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
           onClick={resetAll}
+          title="Reset all"
         >
           <ArrowPathIcon />
         </button>
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
           onClick={() => setLockedTiles(Object.fromEntries(Object.keys(grades).map((key) => [key, !allLocked])))}
+          title={allLocked ? 'Unlock all tiles' : 'Lock all tiles'}
         >
           {allLocked ? <LockClosedIcon /> : <LockOpenIcon />}
         </button>
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
           onClick={() => changeAll(-config.autoIncreaseDelta)}
+          title="Decrease all grades"
         >
           <MinusIcon />
         </button>
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
           onClick={() => changeAll(config.autoIncreaseDelta)}
+          title="Increase all grades"
         >
           <PlusIcon />
         </button>
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
           onClick={() => setSettingsOpen(true)}
+          title="Settings"
         >
           <Cog6ToothIcon />
         </button>
       </div>
+      </header>
       {settingsOpen && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60">
           <div className="flex w-80 flex-col gap-4 rounded bg-zinc-900 p-4 text-gray-200">
@@ -130,8 +138,8 @@ function App() {
             <label className="flex flex-col gap-1">Delay (seconds)<input className="rounded bg-zinc-800 p-2" type="number" min="1" value={settings.interval} onChange={(e) => setSettings((prev) => ({...prev, interval: e.target.value}))} /></label>
             <label className="flex flex-col gap-1">Minimum grade<input className="rounded bg-zinc-800 p-2" type="number" min="0" max="10" step="0.25" value={settings.minGrade} onChange={(e) => setSettings((prev) => ({...prev, minGrade: e.target.value}))} /></label>
             <div className="flex justify-end gap-2">
-              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={() => setSettingsOpen(false)}>Cancel</button>
-              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={applySettings}>Confirm</button>
+              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={() => setSettingsOpen(false)} title="Cancel settings">Cancel</button>
+              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={applySettings} title="Apply settings">Confirm</button>
             </div>
           </div>
         </div>
