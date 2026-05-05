@@ -85,7 +85,7 @@ function App() {
   }
 
   return (
-    <div className='flex min-h-screen flex-col items-center gap-4 p-4'>
+    <div className='flex min-h-screen flex-col items-center gap-4 bg-[radial-gradient(circle_at_20%_15%,#334155_0,#111827_34%,#020617_72%),linear-gradient(135deg,#0f172a,#18181b)] p-4'>
       <div className="flex shrink-0 items-center gap-2 rounded p-2">
         <button
           className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
