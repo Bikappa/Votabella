@@ -1,4 +1,4 @@
-import { ChevronDownIcon, ChevronUpIcon } from "@heroicons/react/16/solid"
+import { LockClosedIcon, LockOpenIcon, MinusIcon, PlusIcon } from "@heroicons/react/16/solid"
 import { DeltaButton } from "./DeltaButton"
 import { useCallback, useEffect, useRef, useState } from "react";
 import { IntervalIndicator } from "./IntervalIndicator";
@@ -8,40 +8,89 @@ export type Props = {
     title: string,
     autoIncreaseInterval: number,
     autoIncreaseDelta: number,
+    minGrade: number,
+    locked: boolean,
+    onLockToggle: () => void,
     onChange?: (arg0: number) => void
 }
-function clampGrade(grade: number) {
-    return Math.min(10, Math.max(0, grade))
+function clampGrade(grade: number, minGrade = 0) {
+    return Math.min(10, Math.max(minGrade, grade))
+}
+const stops = [
+    [0, [24, 10, 18], [88, 6, 22]],
+    [5, [127, 29, 29], [220, 38, 38]],
+    [6, [4, 120, 87], [101, 163, 13]],
+    [8, [20, 184, 166], [125, 211, 252]],
+    [9, [99, 102, 241], [226, 232, 240]],
+    [10, [14, 165, 233], [217, 70, 239]],
+] as const
+function mix(a: readonly number[], b: readonly number[], t: number) {
+    return a.map((v, i) => Math.round(v + (b[i] - v) * t)).join(' ')
+}
+function tileBg(grade: number) {
+    const hi = stops.findIndex(([g]) => grade <= g)
+    const [g1, a1, b1] = stops[Math.max(0, hi - 1)]
+    const [g2, a2, b2] = stops[hi < 0 ? stops.length - 1 : hi]
+    const t = g1 === g2 ? 0 : (grade - g1) / (g2 - g1)
+    return `linear-gradient(135deg, rgb(${mix(a1, a2, t)}), rgb(${mix(b1, b2, t)}))`
 }
 
-export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncreaseDelta}: Props) {
-    const bg = grade < 6 ? 'from-rose-900/50 to-pink-700/50' : 'from-emerald-700/50 to-lime-700/50';
+export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncreaseDelta, minGrade, locked, onLockToggle}: Props) {
+    const bg = tileBg(grade);
     const iid = useRef<number>(0)
-    const [indicatorKey, setIndicatorKey] = useState<number>(0)
-    const nextAutoGrade = clampGrade(grade + autoIncreaseDelta)
+    const tid = useRef<number>(0)
+    const left = useRef(autoIncreaseInterval)
+    const [timeLeft, setTimeLeft] = useState(autoIncreaseInterval)
+    const [timerVersion, setTimerVersion] = useState(0)
+    const nextAutoGrade = clampGrade(grade + autoIncreaseDelta, minGrade)
 
-    const resetInterval = useCallback(() => {
+    const resetTimer = useCallback(() => {
+        left.current = autoIncreaseInterval
+        setTimeLeft(autoIncreaseInterval)
+        setTimerVersion((prev) => prev + 1)
+    }, [autoIncreaseInterval])
+
+    useEffect(() => {
         if(iid.current !== 0){
             window.clearInterval(iid.current)
-        } 
-        iid.current = setInterval(() =>{
+        }
+        if(tid.current !== 0){
+            window.clearTimeout(tid.current)
+        }
+        if(locked || grade === 10){
+            return
+        }
+        const startedAt = Date.now()
+        const startedLeft = left.current
+        tid.current = window.setTimeout(() => {
             onChange?.(nextAutoGrade)
-            setIndicatorKey((prev) => prev + 1)
-        }, autoIncreaseInterval);
-
-    }, [autoIncreaseInterval, nextAutoGrade, onChange])
+            resetTimer()
+        }, startedLeft)
+        iid.current = window.setInterval(() => {
+            const nextLeft = Math.max(0, startedLeft - (Date.now() - startedAt))
+            left.current = nextLeft
+            setTimeLeft(nextLeft)
+        }, 50)
+        return () => {
+            window.clearInterval(iid.current)
+            window.clearTimeout(tid.current)
+            iid.current = 0
+            tid.current = 0
+        }
+    }, [locked, nextAutoGrade, grade, onChange, resetTimer, timerVersion])
 
     const wrappedOnChange = useCallback(
         (newGrade: number) => {
-            onChange?.(clampGrade(newGrade))
-            resetInterval()
-            setIndicatorKey((prev) => prev + 1)
+            onChange?.(clampGrade(newGrade, minGrade))
+            if(!locked){
+                resetTimer()
+            }
         },
-        [onChange, resetInterval],
+        [locked, minGrade, onChange, resetTimer],
     )
     const gradeOptions = (() => {
         const values = [];
-        for(let i=0; i<=10; i+=0.25){
+        for(let i=minGrade; i<=10; i+=0.25){
             values.push(i)
         }
         if(!values.includes(grade)){
@@ -50,40 +99,40 @@ export function Tile({grade, onChange, title, autoIncreaseInterval, autoIncrease
         return values.sort((a, b) => b - a)
     })()
 
-    useEffect(() => {
-        resetInterval()
-        return () => {
-            if(iid.current !== 0){
-                window.clearInterval(iid.current)
-                iid.current = 0
-            }
-        }
-    }, [resetInterval])
-
-    return <div className={`
-        bg-gradient-to-b
-        ${bg}
-        rounded
-        border 
-        border-white/70
-        hover:border-white
-        accent-black w-[calc(var(--text-2xl)*4)] text-center text-2xl p-4
-        group`}>
-        <div className="flex flex-col items-center gap-2">
-            <IntervalIndicator period={autoIncreaseInterval} key={indicatorKey} />
-        <span className="text-sm font-medium text-gray-300">{title}</span>
-        <div className="group-hover:opacity-100 opacity-0">
-            <DeltaButton disabled={grade >= 10} onClick={() => wrappedOnChange?.(grade + 0.25)}><ChevronUpIcon /></DeltaButton>
+    return <div className="
+        relative
+        p-1.5
+        accent-black 
+        min-h-0 
+        text-center 
+        text-2xl
+        group"
+    >
+        {grade !== 10 && <IntervalIndicator period={autoIncreaseInterval} left={timeLeft} />}
+        <div className="relative flex h-full min-h-32 items-center justify-center rounded-xl p-6" style={{ background: bg }}>
+        <button className={`absolute top-1 right-1 z-10 size-6 cursor-pointer hover:opacity-100 ${locked ? 'opacity-70' : 'opacity-0 group-hover:opacity-70'}`} onClick={onLockToggle}>
+            {locked ? <LockClosedIcon /> : <LockOpenIcon />}
+        </button>
+        <div className="flex flex-col items-center gap-1">
+        <span className="text-xl font-medium text-gray-300ntext-shadow-xs">{title}</span>
+        <div className="flex gap-2">
+              <div className="group-hover:opacity-100 opacity-0">
+                <DeltaButton disabled={grade <= minGrade} onClick={() => wrappedOnChange?.(grade - 0.25)}><MinusIcon /></DeltaButton>
+            </div>
+            <div className="group-hover:opacity-100 opacity-0">
+                <DeltaButton disabled={grade >= 10} onClick={() => wrappedOnChange?.(grade + 0.25)}><PlusIcon /></DeltaButton>
+            </div>
+          
         </div>
         <select 
-        className="text-4xl text-gray-300  text-center bg-none appearance-none p-0"
+        className="text-4xl text-gray-300 text-center bg-none appearance-none p-0 text-shadow-lg"
         value={grade}
         onChange={(e) => wrappedOnChange?.(parseFloat(e.target.value))}>
             {gradeOptions.map((v) => <option key={v} value={v}>{v}</option>)}
             </select>
-        <div className="group-hover:opacity-100 opacity-0">
-        <DeltaButton disabled={grade <= 0} onClick={() => wrappedOnChange?.(grade - 0.25)}><ChevronDownIcon /></DeltaButton>
+        
         </div>
         </div>
 
-    </div>}
+    </div>
+}

@@ -1,36 +1,12 @@
-import { useEffect, useRef, useState } from "react"
-
 type Props = {
     period: number,
+    left: number,
 }
-export function IntervalIndicator({period}:Props){
-
-    const [left, setLeft] = useState(period);
-    const iid = useRef(0);
-
-    useEffect(() => {
-
-        if(iid.current !== 0){
-            return
-        }
-        iid.current = setInterval(
-            () => {setLeft((prev) => {
-                if(prev - 100 <= 0){
-                    clearInterval(iid.current)
-                    return 0;
-                }
-                return prev - 50
-            })}, 50)
-
-        return () => {
-            clearInterval(iid.current)
-            iid.current = 0
-        }
-        
-    })
+export function IntervalIndicator({period, left}:Props){
+    const progress = Math.max(0.01, Math.min(1, 1 - left / period))
 
     return <div
-    className="bg-gray-300 h-1.5 rounded"
-    style={{ width: `${Math.round(100-(left / period) * 100)}%` }}
-  />
+        className="pointer-events-none absolute inset-0 rounded-xl"
+        style={{ background: `conic-gradient(#fff ${progress * 360}deg, rgb(255 255 255 / 0.35) 0deg)` }}
+    />
 }
