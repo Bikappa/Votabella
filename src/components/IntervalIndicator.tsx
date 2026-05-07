@@ -1,9 +1,7 @@
 type Props = {
-    period: number,
-    left: number,
+    progress: number,
 }
-export function IntervalIndicator({period, left}:Props){
-    const progress = Math.max(0.01, Math.min(1, 1 - left / period))
+export function IntervalIndicator({progress}:Props){
 
     return <div
         className="pointer-events-none absolute inset-0 rounded-xl"

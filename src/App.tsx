@@ -1,168 +1,353 @@
-import { useEffect, useMemo, useState } from 'react'
-import { Tile } from './components/Tile'
-import { ArrowPathIcon, Cog6ToothIcon, LockClosedIcon, LockOpenIcon, MinusIcon, PlusIcon } from '@heroicons/react/16/solid'
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Tile } from "./components/Tile";
+import {
+  ArrowPathIcon,
+  Cog6ToothIcon,
+  LockClosedIcon,
+  LockOpenIcon,
+  MinusIcon,
+  PlusIcon,
+} from "@heroicons/react/16/solid";
 
-const DEFAULT_TILE_COUNT = 20
-const DEFAULT_AUTO_INCREASE_INTERVAL = 20000
-const DEFAULT_AUTO_INCREASE_DELTA = 0.25
-const DEFAULT_MIN_GRADE = 0
+const DEFAULT_TILE_COUNT = 20;
+const DEFAULT_AUTO_INCREASE_INTERVAL = 20000;
+const DEFAULT_AUTO_INCREASE_DELTA = 0.25;
+const DEFAULT_MIN_GRADE = 0;
 
-function getNumberParam(params: URLSearchParams, names: string[], fallback: number) {
+function getNumberParam(
+  params: URLSearchParams,
+  names: string[],
+  fallback: number,
+) {
   for (const name of names) {
-    const value = params.get(name)
+    const value = params.get(name);
 
     if (value === null) {
-      continue
+      continue;
     }
 
-    const parsed = Number(value)
+    const parsed = Number(value);
 
     if (Number.isFinite(parsed) && parsed > 0) {
-      return parsed
+      return parsed;
     }
   }
 
-  return fallback
+  return fallback;
 }
 
 function getAppConfig() {
-  const params = new URLSearchParams(window.location.search)
-  const tileCount = Math.floor(getNumberParam(params, ['tiles', 'tileCount', 'count'], DEFAULT_TILE_COUNT))
-  const minGrade = Number(params.get('minGrade') ?? DEFAULT_MIN_GRADE)
+  const params = new URLSearchParams(window.location.search);
+  const tileCount = Math.floor(
+    getNumberParam(params, ["tiles", "tileCount", "count"], DEFAULT_TILE_COUNT),
+  );
+  const minGrade = Number(params.get("minGrade") ?? DEFAULT_MIN_GRADE);
 
   return {
     tileCount: Math.max(1, tileCount),
-    autoIncreaseInterval: getNumberParam(params, ['interval', 'period', 'autoInterval'], DEFAULT_AUTO_INCREASE_INTERVAL),
-    autoIncreaseDelta: getNumberParam(params, ['delta', 'autoDelta'], DEFAULT_AUTO_INCREASE_DELTA),
-    minGrade: Math.min(10, Math.max(0, Number.isFinite(minGrade) ? minGrade : DEFAULT_MIN_GRADE)),
-  }
+    autoIncreaseInterval: getNumberParam(
+      params,
+      ["interval", "period", "autoInterval"],
+      DEFAULT_AUTO_INCREASE_INTERVAL,
+    ),
+    autoIncreaseDelta: getNumberParam(
+      params,
+      ["delta", "autoDelta"],
+      DEFAULT_AUTO_INCREASE_DELTA,
+    ),
+    minGrade: Math.min(
+      10,
+      Math.max(0, Number.isFinite(minGrade) ? minGrade : DEFAULT_MIN_GRADE),
+    ),
+  };
 }
 
 function App() {
-  const config = useMemo(() => getAppConfig(), [])
-  const keys = useMemo(() => Array.from({ length: config.tileCount }, (_, i) => String(i+1)), [config.tileCount])
-  const storageKey = useMemo(() => `votabella:${window.location.search}`, [])
+  const config = useMemo(() => getAppConfig(), []);
+  const keys = useMemo(
+    () => Array.from({ length: config.tileCount }, (_, i) => String(i + 1)),
+    [config.tileCount],
+  );
+  const storageKey = useMemo(() => `votabella:${window.location.search}`, []);
   const savedState = useMemo(() => {
     try {
-      return JSON.parse(localStorage.getItem(storageKey) ?? 'null')
+      return JSON.parse(localStorage.getItem(storageKey) ?? "null");
     } catch {
-      return null
+      return null;
     }
-  }, [storageKey])
+  }, [storageKey]);
 
   const [grades, setGrades] = useState(() =>
-    Object.fromEntries(keys.map((key) => [key, Math.max(config.minGrade, Number(savedState?.grades?.[key]) || config.minGrade)])),
-  )
+    Object.fromEntries(
+      keys.map((key) => [
+        key,
+        Math.max(
+          config.minGrade,
+          Number(savedState?.grades?.[key]) || config.minGrade,
+        ),
+      ]),
+    ),
+  );
+  const lastTime = useRef(new Date().getTime());
+  const [progress, setProgress] = useState<Record<string, number>>(() =>
+    Object.fromEntries(keys.map((key) => [key, 0])),
+  );
+
   const [lockedTiles, setLockedTiles] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(keys.map((key) => [key, !!savedState?.lockedTiles?.[key]])),
-  )
+    Object.fromEntries(
+      keys.map((key) => [key, !!savedState?.lockedTiles?.[key]]),
+    ),
+  );
   const [labels, setLabels] = useState<Record<string, string>>(() =>
-    Object.fromEntries(keys.map((key) => [key, String(savedState?.labels?.[key] ?? '')])),
-  )
-  const [resetVersion, setResetVersion] = useState(0)
-  const [settingsOpen, setSettingsOpen] = useState(false)
+    Object.fromEntries(
+      keys.map((key) => [key, String(savedState?.labels?.[key] ?? "")]),
+    ),
+  );
+  const [resetVersion, setResetVersion] = useState(0);
+  const [settingsOpen, setSettingsOpen] = useState(false);
   const [settings, setSettings] = useState({
     interval: String(config.autoIncreaseInterval / 1000),
     minGrade: String(config.minGrade),
     tiles: String(config.tileCount),
-  })
-  const allLocked = Object.keys(grades).every((key) => lockedTiles[key])
+  });
+  const allLocked = Object.keys(grades).every((key) => lockedTiles[key]);
   const resetAll = () => {
-    setGrades(Object.fromEntries(keys.map((key) => [key, config.minGrade])))
-    setLockedTiles({})
-    setLabels({})
-    setResetVersion((prev) => prev + 1)
-  }
-  const changeAll = (delta: number) => setGrades((prev) =>
-    Object.fromEntries(keys.map((key) => [key, Math.min(10, Math.max(config.minGrade, prev[key] + delta))])),
-  )
+    setGrades(Object.fromEntries(keys.map((key) => [key, config.minGrade])));
+    setLockedTiles({});
+    setLabels({});
+    setResetVersion((prev) => prev + 1);
+  };
+  const changeAll = (delta: number) =>
+    setGrades((prev) =>
+      Object.fromEntries(
+        keys.map((key) => [
+          key,
+          Math.min(10, Math.max(config.minGrade, prev[key] + delta)),
+        ]),
+      ),
+    );
   useEffect(() => {
-    localStorage.setItem(storageKey, JSON.stringify({grades, labels, lockedTiles}))
-  }, [grades, labels, lockedTiles, storageKey])
+    localStorage.setItem(
+      storageKey,
+      JSON.stringify({ grades, labels, lockedTiles }),
+    );
+  }, [grades, labels, lockedTiles, storageKey]);
+
+  const incrementGrade = useCallback(
+    (key: string) => {
+      setGrades((prev) => ({
+        ...prev,
+        [key]: Math.min(10, prev[key] + config.autoIncreaseDelta),
+      }));
+    },
+    [setGrades],
+  );
+  const updateProgress = useCallback(
+    (tDelta: number) => {
+      setProgress((prev) => {
+        const newProgress = Object.fromEntries(
+          Object.entries(prev).map(([k, prevProgress]) => {
+            const progress = prevProgress + (lockedTiles[k] ? 0 : tDelta);
+
+            return [k, progress];
+          }),
+        );
+        return newProgress;
+      });
+    },
+    [setProgress, lockedTiles, incrementGrade],
+  );
+
+  useEffect(() => {
+    for (const [k, v] of Object.entries(progress)) {
+      if (v / config.autoIncreaseInterval >= 1) {
+        incrementGrade(k);
+        setProgress((prev) => ({
+          ...prev,
+          [k]: 0,
+        }));
+      }
+    }
+  }, [progress]);
+  useEffect(() => {
+    const id = setInterval(() => {
+      const now = new Date().getTime();
+      updateProgress(now - lastTime.current);
+      lastTime.current = new Date().getTime();
+    }, 30);
+
+    return () => {
+      clearInterval(id);
+    };
+  }, [updateProgress]);
+
   const applySettings = () => {
-    const params = new URLSearchParams(window.location.search)
-    params.set('interval', String(Math.max(1, Number(settings.interval) || config.autoIncreaseInterval / 1000) * 1000))
-    params.set('minGrade', String(Math.min(10, Math.max(0, Number(settings.minGrade) || 0))))
-    params.set('tiles', String(Math.max(1, Math.floor(Number(settings.tiles) || config.tileCount))))
-    alert('The URL will change and saved grades/locks will reset for the new settings.')
-    window.location.search = params.toString()
-  }
+    const params = new URLSearchParams(window.location.search);
+    params.set(
+      "interval",
+      String(
+        Math.max(
+          1,
+          Number(settings.interval) || config.autoIncreaseInterval / 1000,
+        ) * 1000,
+      ),
+    );
+    params.set(
+      "minGrade",
+      String(Math.min(10, Math.max(0, Number(settings.minGrade) || 0))),
+    );
+    params.set(
+      "tiles",
+      String(
+        Math.max(1, Math.floor(Number(settings.tiles) || config.tileCount)),
+      ),
+    );
+    alert(
+      "The URL will change and saved grades/locks will reset for the new settings.",
+    );
+    window.location.search = params.toString();
+  };
 
   return (
-    <div className='flex min-h-screen flex-col items-center gap-4 bg-[radial-gradient(circle_at_20%_15%,#334155_0,#111827_34%,#020617_72%),linear-gradient(135deg,#0f172a,#18181b)] p-4'>
+    <div className="flex min-h-screen flex-col items-center gap-4 bg-[radial-gradient(circle_at_20%_15%,#334155_0,#111827_34%,#020617_72%),linear-gradient(135deg,#0f172a,#18181b)] p-4">
       <header className="flex w-full shrink-0 items-center justify-between gap-4">
-      <h1 className="text-3xl font-semibold tracking-wide text-white">Votabella</h1>
-      <div className="flex items-center gap-2 rounded p-2">
-        <button
-          className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
-          onClick={resetAll}
-          title="Reset all"
-        >
-          <ArrowPathIcon />
-        </button>
-        <button
-          className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
-          onClick={() => setLockedTiles(Object.fromEntries(Object.keys(grades).map((key) => [key, !allLocked])))}
-          title={allLocked ? 'Unlock all tiles' : 'Lock all tiles'}
-        >
-          {allLocked ? <LockClosedIcon /> : <LockOpenIcon />}
-        </button>
-        <button
-          className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
-          onClick={() => changeAll(-config.autoIncreaseDelta)}
-          title="Decrease all grades"
-        >
-          <MinusIcon />
-        </button>
-        <button
-          className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
-          onClick={() => changeAll(config.autoIncreaseDelta)}
-          title="Increase all grades"
-        >
-          <PlusIcon />
-        </button>
-        <button
-          className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
-          onClick={() => setSettingsOpen(true)}
-          title="Settings"
-        >
-          <Cog6ToothIcon />
-        </button>
-      </div>
+        <h1 className="text-3xl font-semibold tracking-wide text-white">
+          Votabella
+        </h1>
+        <div className="flex items-center gap-2 rounded p-2">
+          <button
+            className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={resetAll}
+            title="Reset all"
+          >
+            <ArrowPathIcon />
+          </button>
+          <button
+            className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() =>
+              setLockedTiles(
+                Object.fromEntries(
+                  Object.keys(grades).map((key) => [key, !allLocked]),
+                ),
+              )
+            }
+            title={allLocked ? "Unlock all tiles" : "Lock all tiles"}
+          >
+            {allLocked ? <LockClosedIcon /> : <LockOpenIcon />}
+          </button>
+          <button
+            className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() => changeAll(-config.autoIncreaseDelta)}
+            title="Decrease all grades"
+          >
+            <MinusIcon />
+          </button>
+          <button
+            className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() => changeAll(config.autoIncreaseDelta)}
+            title="Increase all grades"
+          >
+            <PlusIcon />
+          </button>
+          <button
+            className="size-10 border border-white/70 hover:border-white rounded opacity-70 hover:opacity-100 cursor-pointer"
+            onClick={() => setSettingsOpen(true)}
+            title="Settings"
+          >
+            <Cog6ToothIcon />
+          </button>
+        </div>
       </header>
       {settingsOpen && (
         <div className="fixed inset-0 z-20 flex items-center justify-center bg-black/60">
           <div className="flex w-80 flex-col gap-4 rounded bg-zinc-900 p-4 text-gray-200">
             <p>Changing settings updates the URL and resets grades/locks.</p>
-            <label className="flex flex-col gap-1">Tiles<input className="rounded bg-zinc-800 p-2" type="number" min="1" value={settings.tiles} onChange={(e) => setSettings((prev) => ({...prev, tiles: e.target.value}))} /></label>
-            <label className="flex flex-col gap-1">Delay (seconds)<input className="rounded bg-zinc-800 p-2" type="number" min="1" value={settings.interval} onChange={(e) => setSettings((prev) => ({...prev, interval: e.target.value}))} /></label>
-            <label className="flex flex-col gap-1">Minimum grade<input className="rounded bg-zinc-800 p-2" type="number" min="0" max="10" step="0.25" value={settings.minGrade} onChange={(e) => setSettings((prev) => ({...prev, minGrade: e.target.value}))} /></label>
+            <label className="flex flex-col gap-1">
+              Tiles
+              <input
+                className="rounded bg-zinc-800 p-2"
+                type="number"
+                min="1"
+                value={settings.tiles}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, tiles: e.target.value }))
+                }
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              Delay (seconds)
+              <input
+                className="rounded bg-zinc-800 p-2"
+                type="number"
+                min="1"
+                value={settings.interval}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, interval: e.target.value }))
+                }
+              />
+            </label>
+            <label className="flex flex-col gap-1">
+              Minimum grade
+              <input
+                className="rounded bg-zinc-800 p-2"
+                type="number"
+                min="0"
+                max="10"
+                step="0.25"
+                value={settings.minGrade}
+                onChange={(e) =>
+                  setSettings((prev) => ({ ...prev, minGrade: e.target.value }))
+                }
+              />
+            </label>
             <div className="flex justify-end gap-2">
-              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={() => setSettingsOpen(false)} title="Cancel settings">Cancel</button>
-              <button className="rounded border border-white/50 px-3 py-2 cursor-pointer" onClick={applySettings} title="Apply settings">Confirm</button>
+              <button
+                className="rounded border border-white/50 px-3 py-2 cursor-pointer"
+                onClick={() => setSettingsOpen(false)}
+                title="Cancel settings"
+              >
+                Cancel
+              </button>
+              <button
+                className="rounded border border-white/50 px-3 py-2 cursor-pointer"
+                onClick={applySettings}
+                title="Apply settings"
+              >
+                Confirm
+              </button>
             </div>
           </div>
         </div>
       )}
-      <div className='grid w-full flex-1 justify-center gap-4' style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(8rem, 12rem))' }}>
+      <div
+        className="grid w-full flex-1 justify-center gap-4"
+        style={{ gridTemplateColumns: "repeat(auto-fit, minmax(8rem, 12rem))" }}
+      >
         {Object.entries(grades).map(([key, score]) => (
-            <Tile
-              key={`tile-${key}-${resetVersion}`}
-              grade={score}
-              title={key}
-              label={labels[key] ?? ''}
-              locked={!!lockedTiles[key]}
-              onLockToggle={() => setLockedTiles((prev) => ({...prev, [key]: !prev[key]}))}
-              onLabelChange={(label) => setLabels((prev) => ({...prev, [key]: label}))}
-              autoIncreaseInterval={config.autoIncreaseInterval}
-              autoIncreaseDelta={config.autoIncreaseDelta}
-              minGrade={config.minGrade}
-              onChange={(newGrade) => setGrades((prev) => ({...prev, [key]: newGrade}))}
-            />
+          <Tile
+            key={`tile-${key}-${resetVersion}`}
+            progress={(progress[key] ?? 0) / config.autoIncreaseInterval}
+            grade={score}
+            title={key}
+            label={labels[key] ?? ""}
+            locked={!!lockedTiles[key]}
+            onLockToggle={() =>
+              setLockedTiles((prev) => ({ ...prev, [key]: !prev[key] }))
+            }
+            onLabelChange={(label) =>
+              setLabels((prev) => ({ ...prev, [key]: label }))
+            }
+            autoIncreaseInterval={config.autoIncreaseInterval}
+            autoIncreaseDelta={config.autoIncreaseDelta}
+            minGrade={config.minGrade}
+            onChange={(newGrade) =>
+              setGrades((prev) => ({ ...prev, [key]: newGrade }))
+            }
+          />
         ))}
       </div>
     </div>
-  )
+  );
 }
 
-export default App
+export default App;
